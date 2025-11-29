@@ -1,10 +1,10 @@
+# main.py
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import List
+from typing import List, Optional
 import pandas as pd
 
-# ← AQUÍ IMPORTA TUS ALGORITMOS (asegúrate que existan estas carpetas/archivos)
 from algoritmos.algoritmo_backtracking import calcular_mejores_tiendas
 from algoritmos.algoritmo_rutas_mst import kruskal_tienda_mas_cercana
 
@@ -18,16 +18,16 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ===================== CARGA DE DATOS =====================
-print("Cargando datos desde la carpeta data/ ...")
+# Carga única de datos
+print("Cargando datos...")
 df_precios = pd.read_csv("data/dataset_compras_completo.csv", encoding="utf-8")
-# df_precios = pd.read_csv("data/dataset_compras_completo_cleaned.csv", encoding="utf-8")
 df_tiendas = pd.read_csv("data/tiendas.csv", encoding="utf-8")
-print(f"Datos cargados: {len(df_precios)} filas de precios, {len(df_tiendas)} tiendas")
+print(f"Listo: {len(df_precios)} precios, {len(df_tiendas)} tiendas")
 
-# ===================== MODELOS =====================
+# Modelos
 class ProductoInput(BaseModel):
     nombre: str
+    cantidad: Optional[float] = 1.0
     prioridad: str = "media"
 
 class CompraRequest(BaseModel):
@@ -47,25 +47,26 @@ class CompraResponse(BaseModel):
     precio_mas_bajo: float
     mensaje: str = "¡Aquí tienes tus mejores opciones!"
 
-# ===================== RUTA =====================
 @app.post("/calcular", response_model=CompraResponse)
 async def calcular_compra(request: CompraRequest):
     if not request.productos:
-        raise HTTPException(400, detail="Debes agregar al menos un producto")
+        raise HTTPException(400, "Agrega al menos un producto")
 
-    nombres_productos = [p.nombre.strip().lower() for p in request.productos]
+    print(f"Usuario en {request.distrito_usuario} | Presupuesto: S/{request.presupuesto}")
 
-    print(f"Calculando para: {request.distrito_usuario} | Presupuesto: S/ {request.presupuesto}")
-    print(f"Productos: {nombres_productos}")
+    productos_lista = [
+        {"nombre": p.nombre, "cantidad": p.cantidad or 1.0}
+        for p in request.productos
+    ]
 
     mejores = calcular_mejores_tiendas(
-        productos=nombres_productos,
+        productos=productos_lista,
         presupuesto=request.presupuesto,
         df=df_precios
     )
 
     if not mejores:
-        raise HTTPException(404, detail="No hay tiendas dentro del presupuesto")
+        raise HTTPException(404, "No hay tiendas que cumplan con tu presupuesto")
 
     top3 = mejores[:3]
     nombres_top3 = [t["nombre_tienda"] for t in top3]
@@ -75,20 +76,18 @@ async def calcular_compra(request: CompraRequest):
         tiendas_candidatas=nombres_top3
     )
 
-    respuesta = CompraResponse(
+    return CompraResponse(
         mejores_tiendas=[
             TiendaResultado(
                 nombre_tienda=t["nombre_tienda"],
-                distrito=t.get("distrito", "Lima"),
-                precio_total=round(t["precio_total"], 2),
-                ahorro=round(t.get("ahorro", 0), 2)
+                distrito=t["distrito"],
+                precio_total=t["precio_total"],
+                ahorro=t["ahorro"]
             ) for t in top3
         ],
         tienda_mas_cercana=tienda_cercana,
-        precio_mas_bajo=round(top3[0]["precio_total"], 2)
+        precio_mas_bajo=top3[0]["precio_total"]
     )
-
-    return respuesta
 
 @app.get("/")
 async def root():
