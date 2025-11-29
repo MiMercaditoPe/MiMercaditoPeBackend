@@ -3,27 +3,44 @@ import pandas as pd
 
 def calcular_mejores_tiendas(productos: list, presupuesto: float, df: pd.DataFrame):
     """
-    Fuerza bruta simple: agrupa por tienda y suma precios
+    Encuentra tiendas que tengan TODOS los productos y cuyo precio total sea <= presupuesto
     """
+    if not productos or presupuesto <= 0:
+        return []
+
+    # Normalizar nombres de productos
     productos_lower = [p.lower().strip() for p in productos]
     
-    # Filtrar filas que tengan alguno de los productos buscados
+    # Filtrar solo las filas que coincidan con alguno de los productos buscados
     mask = df['producto'].str.lower().isin(productos_lower)
     df_filtrado = df[mask].copy()
     
     if df_filtrado.empty:
         return []
 
-    # Agrupar por tienda y sumar precios
-    tiendas = []
+    # Agrupar por tienda y verificar que tenga TODOS los productos
+    resultados = []
     for tienda, grupo in df_filtrado.groupby('tienda'):
-        precio_total = grupo['precio'].sum()
-        if precio_total <= presupuesto:
-            # Intentar obtener distrito (ajusta la columna si tu CSV tiene otro nombre)
-            distrito = "Lima"
-            if 'distrito' in df.columns:
-                distrito_row = df[df['tienda'] == tienda]['distrito']
-                if not distrito_row.empty:
-                    distrito = distrito_row.iloc[0]
-            
-            tiendas.append
+        productos_en_tienda = grupo['producto'].str.lower().unique()
+        # Verificar que tenga TODOS los productos buscados
+        if all(p in productos_en_tienda for p in productos_lower):
+            precio_total = grupo['precio'].sum()
+            if precio_total <= presupuesto:
+                distrito = "Lima"
+                if 'distrito' in df.columns:
+                    fila_distrito = df[df['tienda'] == tienda]
+                    if not fila_distrito.empty:
+                        distrito = fila_distrito.iloc[0].get('distrito', 'Lima')
+                
+                resultados.append({
+                    "nombre_tienda": tienda,
+                    "distrito": str(distrito),
+                    "precio_total": round(float(precio_total), 2),
+                    "ahorro": 0.0
+                })
+
+    # Ordenar por precio (mejor primero)
+    resultados.sort(key=lambda x: x["precio_total"])
+    
+    # Devolver máximo 10 resultados
+    return resultados[:10]
