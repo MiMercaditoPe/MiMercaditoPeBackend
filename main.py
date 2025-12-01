@@ -16,8 +16,8 @@ app.add_middleware(
 
 print("Cargando datos iniciales...")
 
-df_precios = pd.read_csv("app/data/dataset_compras_completo.csv", encoding="utf-8")
-df_tiendas = pd.read_csv("app/data/tiendas.csv", encoding="utf-8")
+df_precios = pd.read_csv("data/dataset_compras_completo.csv", encoding="utf-8")
+df_tiendas = pd.read_csv("data/tiendas.csv", encoding="utf-8")
 
 print("Datos cargados correctamente")
 
