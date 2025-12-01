@@ -1,8 +1,10 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-import pandas as pd
-
 from routers.compras import router as compras_router
+from database import Base, engine, SessionLocal
+
+# Crear tablas si aún no existen
+Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Mi Mercadito Pe - Backend Oficial")
 
@@ -14,19 +16,21 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-print("Cargando datos iniciales...")
-
-df_precios = pd.read_csv("data/dataset_compras_completo.csv", encoding="utf-8")
-df_tiendas = pd.read_csv("data/tiendas.csv", encoding="utf-8")
-
-print("Datos cargados correctamente")
-
-app.state.df_precios = df_precios
-app.state.df_tiendas = df_tiendas
-
-app.include_router(compras_router, prefix="/api")
-
+# Dependencia para obtener la sesión de BD
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
 @app.get("/")
-async def root():
-    return {"message": "Backend Mi Mercadito Pe funcionando al 100%"}
+def root():
+    return {"message": "Backend Mi Mercadito Pe funcionando con Azure SQL"}
+
+# IMPORTANTE: pasar la dependencia al router
+app.include_router(
+    compras_router,
+    prefix="/api",
+    dependencies=[]  # o agregar aquí get_db si el router lo usa
+)
