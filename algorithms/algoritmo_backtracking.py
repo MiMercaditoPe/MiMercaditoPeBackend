@@ -1,37 +1,52 @@
-import pandas as pd
+# algoritmo_backtracking.py
+from sqlalchemy import text
+from sqlalchemy.orm import Session
 
-def calcular_mejores_tiendas(productos, presupuesto, df):
+def calcular_mejores_tiendas(productos, presupuesto, db: Session):
     """
     productos: lista de {nombre, cantidad}
     presupuesto: número
-    df: dataset completo con columnas:
-        - tienda
-        - producto
-        - precio
-        - distrito
+    db: sesión SQLAlchemy
     """
 
     resultados = []
 
-    tiendas = df["tienda"].unique()
+    # Obtener todas las tiendas (usando text para SQL crudo)
+    sql_tiendas = text("SELECT DISTINCT tienda FROM PRECIOS")
+    res = db.execute(sql_tiendas)
+    # res.scalars() devuelve los valores de la primera columna si la consulta lo permite
+    tiendas = [row[0] for row in res.fetchall()]
 
     for tienda in tiendas:
+
+        # Obtener distrito de la tienda (TOP 1 es válido para SQL Server)
+        sql_distrito = text("SELECT TOP 1 distrito FROM PRECIOS WHERE tienda = :t")
+        distrito_row = db.execute(sql_distrito, {"t": tienda}).fetchone()
+
+        if not distrito_row:
+            continue
+
+        distrito = distrito_row[0]
+
         subtotal = 0
         disponible = True
-        distrito = df[df["tienda"] == tienda]["distrito"].iloc[0]
 
+        # Revisar cada producto requerido
         for item in productos:
             nombre = item["nombre"]
-            cantidad = item["cantidad"]
 
-            fila = df[(df["tienda"] == tienda) & (df["producto"] == nombre)]
+            sql_precio = text("""
+                SELECT precio FROM PRECIOS
+                WHERE tienda = :t AND producto = :p
+            """)
+            fila = db.execute(sql_precio, {"t": tienda, "p": nombre}).fetchone()
 
-            if fila.empty:
+            if not fila:
                 disponible = False
                 break
 
-            precio_unit = float(fila["precio"].iloc[0])
-            subtotal += precio_unit * cantidad
+            precio_unit = float(fila[0])
+            subtotal += precio_unit
 
         if not disponible:
             continue
