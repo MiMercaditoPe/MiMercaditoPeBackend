@@ -1,12 +1,10 @@
-from fastapi import APIRouter, HTTPException, Request, Depends
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 from typing import List, Optional
-from sqlalchemy.orm import Session
 
 from algorithms.algoritmo_backtracking import calcular_mejores_tiendas
 from algorithms.algoritmo_rutas_mst import kruskal_tienda_mas_cercana
 
-from database import get_db   
 
 router = APIRouter()
 
@@ -38,11 +36,9 @@ class CompraResponse(BaseModel):
 
 
 @router.post("/calcular", response_model=CompraResponse)
-async def calcular_compra(
-    body: CompraRequest,
-    db: Session = Depends(get_db)  
-):
+async def calcular_compra(request: Request, body: CompraRequest):
 
+    df = request.app.state.df_precios
 
     if not body.productos:
         raise HTTPException(400, "Agrega al menos un producto")
@@ -52,11 +48,10 @@ async def calcular_compra(
         for p in body.productos
     ]
 
-    # TODO: aquí adentro llamarás queries SQL en lugar de CSV
     mejores = calcular_mejores_tiendas(
         productos=productos_lista,
         presupuesto=body.presupuesto,
-        db=db  
+        df=df
     )
 
     if not mejores:
