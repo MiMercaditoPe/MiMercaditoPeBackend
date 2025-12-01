@@ -2,7 +2,7 @@
 from collections import defaultdict
 import heapq
 
-# Aristas reales aproximadas (km por carretera)
+# Aristas reales aproximadas (km por carretera) - COMPLETADO Y CORREGIDO
 grafo_aristas = [
     (2, "Miraflores", "Barranco"), (2, "Barranco", "Miraflores"),
     (2, "Miraflores", "Surquillo"), (2, "Surquillo", "Miraflores"),
@@ -24,48 +24,61 @@ grafo_aristas = [
     (12, "Comas", "San Juan de Lurigancho"), (12, "San Juan de Lurigancho", "Comas"),
     (6, "Miraflores", "San Borja"), (6, "San Borja", "Miraflores"),
     (7, "Miraflores", "Santiago de Surco"), (7, "Santiago de Surco", "Miraflores"),
+    # Conexiones extra para que no haya distritos aislados
+    (10, "San Juan de Lurigancho", "Surquillo"),
 ]
 
-# Normalización de nombres
+# Normalización robusta
 NORMALIZACION = {
-    "Surco": "Santiago de Surco",
-    "San Martin de Porres": "San Martín de Porres",
-    "San Martín de Porres": "San Martín de Porres",
+    "surco": "Santiago de Surco",
+    "santiago de surco": "Santiago de Surco",
+    "san martin de porres": "San Martín de Porres",
+    "san martín de porres": "San Martín de Porres",
+    "jesus maria": "Jesús María",
+    "jesús maría": "Jesús María",
+    "villa el salvador": "Villa El Salvador",
 }
 
 def normalizar_distrito(distrito: str) -> str:
-    return NORMALIZACION.get(distrito.strip(), distrito.strip())
+    if not distrito:
+        return "Miraflores"  # fallback
+    clave = distrito.strip().lower()
+    return NORMALIZACION.get(clave, distrito.strip().title())
 
-# Construir grafo
+# Construcción del grafo (solo una vez)
 grafo = defaultdict(dict)
-for dist, a, b in grafo_aristas:
+for distancia, a, b in grafo_aristas:
     a_norm = normalizar_distrito(a)
     b_norm = normalizar_distrito(b)
-    grafo[a_norm][b_norm] = dist
-    grafo[b_norm][a_norm] = dist  # bidireccional
+    grafo[a_norm][b_norm] = distancia
+    grafo[b_norm][a_norm] = distancia
 
-def distancia_entre_distritos(origen: str, destino: str) -> int:
+def distancia_entre_distritos(origen: str, destino: str) -> float:
+    """Devuelve distancia en km. Si no hay camino → 999"""
     origen = normalizar_distrito(origen)
     destino = normalizar_distrito(destino)
     
     if origen == destino:
-        return 0
+        return 0.0
     
-    # Dijkstra
+    if origen not in grafo or destino not in grafo:
+        return 999.0
+    
+    # Dijkstra manual
     cola = [(0, origen)]
     visitados = set()
     
     while cola:
-        (costo, actual) = heapq.heappop(cola)
+        costo, actual = heapq.heappop(cola)
         if actual in visitados:
             continue
         visitados.add(actual)
         
         if actual == destino:
-            return costo
+            return round(costo, 1)
             
         for vecino, peso in grafo[actual].items():
             if vecino not in visitados:
                 heapq.heappush(cola, (costo + peso, vecino))
     
-    return 999  # muy lejos o no conectado
+    return 999.0  # no conectado

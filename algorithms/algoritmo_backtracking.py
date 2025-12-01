@@ -1,57 +1,49 @@
-# algoritmos/algoritmo_backtracking.py
 import pandas as pd
 
-def calcular_mejores_tiendas(productos: list, presupuesto: float, df: pd.DataFrame):
-    if not productos or presupuesto <= 0:
-        return []
+def calcular_mejores_tiendas(productos, presupuesto, df):
+    """
+    productos: lista de {nombre, cantidad}
+    presupuesto: número
+    df: dataset completo con columnas:
+        - tienda
+        - producto
+        - precio
+        - distrito
+    """
 
     resultados = []
-    
-    # Crear diccionario: producto -> cantidad deseada
-    productos_dict = {}
-    for p in productos:
-        nombre = p["nombre"].strip().lower()
-        try:
-            cantidad = float(p.get("cantidad", 1))
-        except:
-            cantidad = 1
-        productos_dict[nombre] = cantidad
 
-    productos_buscados = list(productos_dict.keys())
+    tiendas = df["tienda"].unique()
 
-    # Filtrar productos relevantes
-    mask = df['producto'].str.lower().isin(productos_buscados)
-    df_filtrado = df[mask].copy()
+    for tienda in tiendas:
+        subtotal = 0
+        disponible = True
+        distrito = df[df["tienda"] == tienda]["distrito"].iloc[0]
 
-    if df_filtrado.empty:
-        return []
+        for item in productos:
+            nombre = item["nombre"]
+            cantidad = item["cantidad"]
 
-    for tienda, grupo in df_filtrado.groupby('tienda'):
-        productos_en_tienda = grupo['producto'].str.lower().unique()
-        
-        # Verificar que tenga TODOS los productos
-        if not all(p in productos_en_tienda for p in productos_buscados):
+            fila = df[(df["tienda"] == tienda) & (df["producto"] == nombre)]
+
+            if fila.empty:
+                disponible = False
+                break
+
+            precio_unit = float(fila["precio"].iloc[0])
+            subtotal += precio_unit * cantidad
+
+        if not disponible:
             continue
 
-        precio_total = 0.0
-        detalle = []
-
-        for _, fila in grupo.iterrows():
-            nombre_prod = fila['producto'].lower().strip()
-            precio_unitario = float(fila['precio'])
-            cantidad_deseada = productos_dict.get(nombre_prod, 1)
-            precio_total += precio_unitario * cantidad_deseada
-            detalle.append(f"{fila['producto']} x{cantidad_deseada} = S/{precio_unitario * cantidad_deseada:.2f}")
-
-        if precio_total <= presupuesto:
-            distrito = grupo.iloc[0].get('distrito', 'Lima')
+        if subtotal <= presupuesto:
             resultados.append({
                 "nombre_tienda": tienda,
-                "distrito": str(distrito),
-                "precio_total": round(precio_total, 2),
-                "detalle": detalle,
-                "ahorro": 0.0
+                "distrito": distrito,
+                "precio_total": subtotal,
+                "ahorro": presupuesto - subtotal
             })
 
-    resultados.sort(key=lambda x: x["precio_total"])
-    return resultados[:10]
+    resultados = sorted(resultados, key=lambda x: x["precio_total"])
+
+    return resultados
