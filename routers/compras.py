@@ -1,9 +1,16 @@
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 from typing import List, Optional
+import re
 
 from algorithms.algoritmo_backtracking import calcular_mejores_tiendas
 from algorithms.algoritmo_rutas_mst import kruskal_tienda_mas_cercana
+
+def normalize(text):
+    text = text.lower()
+    text = re.sub(r"[^a-z0-9áéíóúñ ]", " ", text)
+    text = re.sub(r"\s+", " ", text).strip()
+    return text
 
 
 router = APIRouter()
